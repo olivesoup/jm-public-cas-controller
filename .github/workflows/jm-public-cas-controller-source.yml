@@ -1,0 +1,84 @@
+# Source-only: no owner token, no protected master or tag writes, no VM.
+name: JM CAS Controller Source CI
+on:
+  pull_request:
+  push:
+    branches: [master]
+permissions:
+  contents: read
+concurrency:
+  group: jm-public-cas-controller-source-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-only:
+    name: jm-cas-controller-source
+    if: github.repository == 'olivesoup/jm-public-cas-controller'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact unprivileged source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          # pull_request defaults to synthetic refs/pull/N/merge. Test the
+          # immutable PR HEAD instead; never label merge-ref CI as exact-head.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Verify raw working-copy bytes match this immutable exact HEAD tree
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = olivesoup/jm-public-cas-controller
+          actual="$(git rev-parse HEAD)"
+          if test "$GITHUB_EVENT_NAME" = pull_request; then
+            test -n "${GITHUB_EVENT_PATH:-}"
+            expected="$(jq -er '.pull_request.head.sha' "$GITHUB_EVENT_PATH")"
+            expected_base="$(jq -er '.pull_request.base.sha' "$GITHUB_EVENT_PATH")"
+            test "$expected" = "$(git rev-parse "$expected^{commit}")"
+            test "$actual" = "$expected"
+            test "$(git rev-parse "origin/master^{commit}")" = "$expected_base"
+            test "$(git merge-base --is-ancestor "$expected_base" "$expected" >/dev/null 2>&1; echo $?)" = 0
+            echo "JM_CAS_CONTROLLER_TESTED_EXACT_PR_HEAD=$actual"
+            echo "JM_CAS_CONTROLLER_EXACT_EVENT_BASE=$expected_base"
+            echo "JM_CAS_CONTROLLER_EVENT_SYNTHETIC_MERGE_REF_NOT_EXECUTED=$GITHUB_SHA"
+          elif test "$GITHUB_EVENT_NAME" = push; then
+            test "$actual" = "$GITHUB_SHA"
+            echo "JM_CAS_CONTROLLER_TESTED_PROTECTED_PUSH_HEAD=$actual"
+          else
+            echo 'JM_CAS_CONTROLLER_WRONG_EVENT_DENIED' >&2
+            exit 1
+          fi
+          for path in scripts/Test-JM-Public-CAS-SyntheticRace.ps1 tests/Test-Cas-SyntheticRace-Worker.ps1 ledger/github_nonce_cas.py tests/test_github_nonce_cas.py; do
+            tracked="$(git rev-parse "HEAD:$path")"
+            actual="$(git hash-object --no-filters "$path")"
+            test "$tracked" = "$actual"
+            echo "JM_CAS_CONTROLLER_EXACT_SOURCE_GIT_BLOB=$path:$actual"
+          done
+          echo 'JM_CAS_CONTROLLER_NATIVE_EXACT_HEAD_RAW_BYTES_PASS'
+      - name: Native Python mocked CAS protocol tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q ledger tests
+          python3 -m unittest discover -s tests -p test_github_nonce_cas.py -v
+          echo 'JM_CAS_CONTROLLER_PYTHON_SOURCE_PASS_NOT_LIVE'
+      - name: Execute actual protected-base Oracle with mocked allow and deny inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_protected_oracle_source.py -v
+          echo 'JM_CAS_CONTROLLER_PROTECTED_ORACLE_MOCK_POSITIVE_NEGATIVE_PASS_NOT_LIVE'
+      - name: Native PowerShell parser, default NOOP and real writer negatives
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          $source='scripts/Test-JM-Public-CAS-SyntheticRace.ps1'
+          $tokens=$null
+          $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $source),[ref]$tokens,[ref]$errors) | Out-Null
+          if (@($errors).Count -ne 0) { throw 'JM_CAS_CONTROLLER_SOURCE_SYNTAX_FAILURE' }
+          $default= & (Join-Path $PWD $source)
+          if ($default -cne 'CAS_RACE_NOT_ACTIVATED') { throw 'JM_CAS_CONTROLLER_DEFAULT_EXECUTION_NOT_DENIED' }
+          ./tests/Test-Cas-SyntheticRace-Worker.ps1
+          Write-Output 'JM_CAS_CONTROLLER_NATIVE_PS7_NEGATIVE_AND_INERT_PASS_NO_GITHUB_MUTATION'
