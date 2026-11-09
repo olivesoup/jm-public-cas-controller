@@ -38,3 +38,7 @@ Status: CANDIDATE, SOURCE_ONLY, NO_RUNTIME_AUTHORITY. As of 2026-11-09.
 ## v1.2 sustainable source CI without embedded old-source freeze
 
 The initial PR review must compare all four transferred source blobs to their immutable Witness v1.5 proven hashes recorded above. Native CI additionally must compare EACH raw worktree script/test blob against the same current immutable Git `HEAD:<path>` tree blob. Do not permanently embed the initial CAS script SHA in the protected workflow as a mandatory value; such a pin would prevent all future legitimate source updates under the protected-path deny policy, recreating the Witness upgrade deadlock. Any new code SHA invalidates previous role reviews/CI, requiring new independent exact-head reviews, but not workflow modifications. Workflow updates remain explicitly protected and need a separate human security migration.
+
+## v1.3 live branch protection readback
+
+The protected-master Oracle must require the live REST `branches/master` object to explicitly report `protected=true`. Without an active branch protection policy it must fail closed, even if repository/PR HEAD identities and changed paths match. Ruleset GET evidence is separately required before source bootstrap MERGE; a false `protected` flag is not overridden by a green PR-controlled workflow.
