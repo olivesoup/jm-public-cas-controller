@@ -1,0 +1,11 @@
+# Synthetic protected workflow-path NEGATIVE probe, NEVER MERGE.
+# Deliberately changes .github/workflows/** which protected-base Oracle forbids.
+name: JM CAS protected workflow deny synthetic probe
+on:
+  workflow_dispatch:
+jobs:
+  never_run:
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo 'INERT_REJECT_PROBE_ONLY'
