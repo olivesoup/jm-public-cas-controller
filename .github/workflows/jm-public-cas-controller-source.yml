@@ -41,6 +41,12 @@ jobs:
           python3 -m compileall -q ledger tests
           python3 -m unittest discover -s tests -p test_github_nonce_cas.py -v
           echo 'JM_CAS_CONTROLLER_PYTHON_SOURCE_PASS_NOT_LIVE'
+      - name: Execute actual protected-base Oracle with mocked allow and deny inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m unittest discover -s tests -p test_protected_oracle_source.py -v
+          echo 'JM_CAS_CONTROLLER_PROTECTED_ORACLE_MOCK_POSITIVE_NEGATIVE_PASS_NOT_LIVE'
       - name: Native PowerShell parser, default NOOP and real writer negatives
         shell: pwsh
         run: |
