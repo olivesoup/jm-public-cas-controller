@@ -1,0 +1,27 @@
+# JM Public CAS Controller — Source Bootstrap Standard v1.0
+
+Status: CANDIDATE, SOURCE_ONLY, NO_RUNTIME_AUTHORITY. As of 2026-11-09.
+
+## Decision: two repos, NOT two CAS implementations
+- `olivesoup/jm-gate-witness` remains the immutable public evidence signer and the sole protected nonce/tag **storage**, using its already active tag Ruleset `26789418`. Do NOT copy, weaken, or modify the Witness protected source Oracle / master Ruleset `26785842`.
+- `olivesoup/jm-public-cas-controller` only hosts the bounded public synthetic CAS **operator implementation** and its native source tests. No additional repo is proposed. Its executable is inert unless `-ExecuteSyntheticRace` and the exact reviewed Git blob SHA are separately provided by the owner after source security review and a distinct ACTIVATE Gate.
+- The unique authoritative CAS operator is the controller's `scripts/Test-JM-Public-CAS-SyntheticRace.ps1`. The pre-existing Witness Draft PR #2 is historical staging/source reference; DO NOT merge it into the protected Witness oracle. Explicitly close/supersede it only after controller source is bootstrapped and independent provenance validated, not before.
+- Bootstrap provenance: reviewed Witness CAS v1.5 PR #2 immutable commit `35769f4b939f2074cd25653ed0806fa4084a1ef0`, operator blob `ff726aa300d13280d2f21497da6c88348a7a0cf9`, native actual PS7 negative test blob `fc842c03e86a7e6cd8c1ae6609778716577e1c85`, Python CAS logic `8868df66224ed14a20ad44b72df246e60a23db4d`, tests `07974b95376d215674873b7f183abd1a5c9470d0`, PASS source CI `42557942147`. Independent Mainline, Adversarial and Judge gave exact-head **source-bounded** PASS only. Those prior reviews do NOT automatically cover the new repo trust root.
+
+## Initial protected-source bootstrap
+1. All candidate files must be committed on an isolated feature branch, then submitted in **one exact-head PR**. Do not commit executable source directly onto the unprotected initial master. Current new repository has no Rulesets; absence of Ruleset is BLOCK.
+2. Native `pull_request` source-only CI must be read-only `permissions: contents: read`, no persisted checkout credentials, use only GitHub-hosted clean runner, no privileged resources, no token REST writes, and test the same operator code by parse + no-op + AST-extracted worker negative unit tests (real PS7). Include Python behavior tests and fail on unexpected file/entrypoint drift.
+3. Sole owner must install an active protected default-branch Ruleset (PR required, linear/no-force/no-delete, no bypass, strict required native CI with correct GitHub Actions app identity and stable check name), **before** source merge. The current GitHub connection does not expose Admin Ruleset write. Do not fake configuration in prose.
+4. Independently verify protected source publisher identity and exact branch/check run; perform a low-trust allowed-document positive probe and malicious protected-source negative probe using a protected-base origin if code includes an oracle. Merely installing a PR-controlled workflow check does **not** meet the independent publisher requirement.
+5. Separate independent Mainline / Adversarial / Judge reviews anchored to this repo's **new** exact PR HEAD, native CI at same SHA and owner exact SHA MERGE. No auto merge. After merge, require a later, separate sole-human ACTIVATE for the first real REST race.
+6. Public storage READBACK required: Witness master `f11115ba7b26001812753f325234fbb267d2a85e` currently protected; Witness nonce tag rule `26789418` active, zero bypass, update/deletion prohibited. Re-read before every experiment; never infer from stale text.
+
+## Live bounded CAS and Real Gate
+- Owner-only operator creates TWO different valid public annotated tag objects (different claim SHA256) aiming for ONE nonce ref in Witness `refs/tags/jm-cas/v1/<32 lowercase hex>`. Genuine typed PS7/PS5 HTTP response provenance required; free-form 422 text and duck-typed fake responses never establish conflict. One writer response success plus loser true HTTP 409/422 and exact authoritative GET of winning/losing tag objects and final ref required.
+- A 422 may be input validation; retain ambiguity. A passing single synthetic race remains `EVIDENCE_ONLY_NOT_PRODUCT_REAL_GATE`. Failed auth/transport/provider API, two successes, inconsistent ref/master/rules => BLOCK.
+- GitHub owner can disable tag rulesets/delete repo. Thus NONROLLBACK under owner compromise is NOT proven; require **external independently retained** signed witness/checkpoint, independently verified product signer/check publisher, Host/VM Real Gate and true five-repository functional test to promote a product Release Set.
+- No secrets, private candidate artifacts, Windows VM identifiers, privileged runner mutations, workflow-dispatched GitHub writes, automatic release activation, or product signing based on this candidate.
+- An existing unrelated **Factory Cloud GitHub Coordinator** must not be touched or retasked.
+
+## Review acceptance
+**SOURCE_BOOTSTRAP_PASS** only if: exact upstream blob provenance, native success at exact new HEAD, source no-op proof, independent new-repo role reviews, and protected-branch identity. **CONTROLLER_RUNTIME_ACTIVATION** remains BLOCK until separate explicit owner ACTIVATE and actual isolated live run. GitHub Issue comments are durable status records, not proof of a human merge/activate approval or of independent external CAS.
