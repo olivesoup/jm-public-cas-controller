@@ -1,0 +1,54 @@
+# Source-only: no owner token, no protected master or tag writes, no VM.
+name: JM CAS Controller Source CI
+on:
+  pull_request:
+  push:
+    branches: [master]
+permissions:
+  contents: read
+concurrency:
+  group: jm-public-cas-controller-source-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  source-only:
+    name: jm-cas-controller-source
+    if: github.repository == 'olivesoup/jm-public-cas-controller'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout exact unprivileged source
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Verify exact bootstrap source blobs against reviewed Witness CAS v1.5
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$GITHUB_REPOSITORY" = olivesoup/jm-public-cas-controller
+          test "$(git hash-object --no-filters scripts/Test-JM-Public-CAS-SyntheticRace.ps1)" = ff726aa300d13280d2f21497da6c88348a7a0cf9
+          test "$(git hash-object --no-filters tests/Test-Cas-SyntheticRace-Worker.ps1)" = fc842c03e86a7e6cd8c1ae6609778716577e1c85
+          test "$(git hash-object --no-filters ledger/github_nonce_cas.py)" = 8868df66224ed14a20ad44b72df246e60a23db4d
+          test "$(git hash-object --no-filters tests/test_github_nonce_cas.py)" = 07974b95376d215674873b7f183abd1a5c9470d0
+          echo 'JM_CAS_CONTROLLER_PROVENANCE_EXACT_UPSTREAM_BLOBS_PASS'
+      - name: Native Python mocked CAS protocol tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m compileall -q ledger tests
+          python3 -m unittest discover -s tests -p test_github_nonce_cas.py -v
+          echo 'JM_CAS_CONTROLLER_PYTHON_SOURCE_PASS_NOT_LIVE'
+      - name: Native PowerShell parser, default NOOP and real writer negatives
+        shell: pwsh
+        run: |
+          Set-StrictMode -Version Latest
+          $ErrorActionPreference = 'Stop'
+          $source='scripts/Test-JM-Public-CAS-SyntheticRace.ps1'
+          $tokens=$null
+          $errors=$null
+          [System.Management.Automation.Language.Parser]::ParseFile((Join-Path $PWD $source),[ref]$tokens,[ref]$errors) | Out-Null
+          if (@($errors).Count -ne 0) { throw 'JM_CAS_CONTROLLER_SOURCE_SYNTAX_FAILURE' }
+          $default= & (Join-Path $PWD $source)
+          if ($default -cne 'CAS_RACE_NOT_ACTIVATED') { throw 'JM_CAS_CONTROLLER_DEFAULT_EXECUTION_NOT_DENIED' }
+          ./tests/Test-Cas-SyntheticRace-Worker.ps1
+          Write-Output 'JM_CAS_CONTROLLER_NATIVE_PS7_NEGATIVE_AND_INERT_PASS_NO_GITHUB_MUTATION'
