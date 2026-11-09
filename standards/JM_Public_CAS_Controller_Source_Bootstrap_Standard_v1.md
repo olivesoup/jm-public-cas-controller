@@ -42,3 +42,7 @@ The initial PR review must compare all four transferred source blobs to their im
 ## v1.3 live branch protection readback
 
 The protected-master Oracle must require the live REST `branches/master` object to explicitly report `protected=true`. Without an active branch protection policy it must fail closed, even if repository/PR HEAD identities and changed paths match. Ruleset GET evidence is separately required before source bootstrap MERGE; a false `protected` flag is not overridden by a green PR-controlled workflow.
+
+## v1.4 native negative testing of the actual protected-base Oracle (before bootstrap)
+
+The initial source CI must compile the **actual embedded Python** from the protected-base Oracle workflow and exercise it in process with an entirely mocked read-only GitHub API. Required tests: allowed README/documentation and allowed later CAS source path PASS; protected workflow path, rename from forbidden path, unprotected master, stale PR SHA/base, fork, draft and empty-file-list all DENY. Never fetch a live GitHub token, mutate refs, or run PR-provided scripts in the Oracle. This mock-only test is source evidence, not the post-merge **live** protected-base Oracle allow/deny proof.
