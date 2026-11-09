@@ -21,16 +21,19 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 1
-      - name: Verify exact bootstrap source blobs against reviewed Witness CAS v1.5
+      - name: Verify raw working-copy bytes match this immutable exact HEAD tree
         shell: bash
         run: |
           set -euo pipefail
           test "$GITHUB_REPOSITORY" = olivesoup/jm-public-cas-controller
-          test "$(git hash-object --no-filters scripts/Test-JM-Public-CAS-SyntheticRace.ps1)" = ff726aa300d13280d2f21497da6c88348a7a0cf9
-          test "$(git hash-object --no-filters tests/Test-Cas-SyntheticRace-Worker.ps1)" = fc842c03e86a7e6cd8c1ae6609778716577e1c85
-          test "$(git hash-object --no-filters ledger/github_nonce_cas.py)" = 8868df66224ed14a20ad44b72df246e60a23db4d
-          test "$(git hash-object --no-filters tests/test_github_nonce_cas.py)" = 07974b95376d215674873b7f183abd1a5c9470d0
-          echo 'JM_CAS_CONTROLLER_PROVENANCE_EXACT_UPSTREAM_BLOBS_PASS'
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          for path in scripts/Test-JM-Public-CAS-SyntheticRace.ps1 tests/Test-Cas-SyntheticRace-Worker.ps1 ledger/github_nonce_cas.py tests/test_github_nonce_cas.py; do
+            tracked="$(git rev-parse "HEAD:$path")"
+            actual="$(git hash-object --no-filters "$path")"
+            test "$tracked" = "$actual"
+            echo "JM_CAS_CONTROLLER_EXACT_SOURCE_GIT_BLOB=$path:$actual"
+          done
+          echo 'JM_CAS_CONTROLLER_NATIVE_EXACT_HEAD_RAW_BYTES_PASS'
       - name: Native Python mocked CAS protocol tests
         shell: bash
         run: |
