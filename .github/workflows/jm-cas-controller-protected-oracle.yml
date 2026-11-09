@@ -59,6 +59,7 @@ jobs:
               pr.get('head', {}).get('repo', {}).get('full_name') != REPO or
               pr.get('base', {}).get('repo', {}).get('full_name') != REPO or
               pr.get('base', {}).get('ref') != 'master' or
+              branch.get('protected') is not True or
               branch.get('commit', {}).get('sha') != pr.get('base', {}).get('sha') or
               branch.get('commit', {}).get('sha') != os.environ.get('GITHUB_SHA') or
               pr.get('head', {}).get('sha') != claim.get('head', {}).get('sha') or
