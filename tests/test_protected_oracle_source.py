@@ -4,6 +4,7 @@ All GitHub API responses are local mocks; no owner tokens, networks, REST mutati
 from __future__ import annotations
 
 import contextlib
+import copy
 import io
 import json
 import os
@@ -49,6 +50,9 @@ class OracleContract(unittest.TestCase):
         }
         self.branch = {"protected": True, "commit": {"sha": BASE}}
         self.files = [{"filename": "README.md", "status": "modified"}]
+        self.after_pr = None
+        self.after_branch = None
+        self.truncated_pages = False
 
     def execute(self, env_overrides=None):
         script = oracle_source()
@@ -65,19 +69,27 @@ class OracleContract(unittest.TestCase):
             }
             env.update(env_overrides or {})
 
+            pr_calls = 0
+            branch_calls = 0
             def fake_urlopen(request, timeout=None):
+                nonlocal pr_calls, branch_calls
                 url = request.full_url
                 if not url.startswith("https://api.github.com/repos/" + REPO):
                     raise AssertionError("Oracle API endpoint changed")
                 if request.get_header("Authorization") != "Bearer " + env["GH_TOKEN"]:
                     raise AssertionError("Oracle API auth header invalid")
                 path = url.split("/repos/" + REPO, 1)[1]
-                if path == "/pulls/9":
-                    return JsonResponse(self.pr)
+                number = self.event["number"]
+                if path == "/pulls/" + str(number):
+                    pr_calls += 1
+                    return JsonResponse(self.after_pr if pr_calls > 1 and self.after_pr is not None else self.pr)
                 if path == "/branches/master":
-                    return JsonResponse(self.branch)
-                if path.startswith("/pulls/9/files?per_page=100&page="):
+                    branch_calls += 1
+                    return JsonResponse(self.after_branch if branch_calls > 1 and self.after_branch is not None else self.branch)
+                if path.startswith("/pulls/" + str(number) + "/files?per_page=100&page="):
                     page = int(path.rsplit("=", 1)[1])
+                    if self.truncated_pages:
+                        return JsonResponse([{"filename": "public-notes/doc.md", "status": "modified"}] * 100)
                     return JsonResponse(self.files if page == 1 else [])
                 raise AssertionError("Unknown Oracle GitHub GET path: " + path)
 
@@ -136,6 +148,37 @@ class OracleContract(unittest.TestCase):
     def test_empty_diff_is_denied(self):
         self.files = []
         self.deny("EMPTY_CHANGE")
+
+    def test_forbidden_path_traversal_denied(self):
+        self.files = [{"filename": "scripts/../.github/workflows/hijack.yml", "status": "added"}]
+        self.deny("PROTECTED_OR_UNLISTED_PATH")
+
+    def test_rename_toward_protected_workflow_denied(self):
+        self.files = [{"filename": ".github/workflows/new.yml",
+                       "previous_filename": "scripts/old.ps1", "status": "renamed"}]
+        self.deny("PROTECTED_OR_UNLISTED_PATH")
+
+    def test_deletion_of_protected_file_denied(self):
+        self.files = [{"filename": ".github/workflows/critical.yml", "status": "removed"}]
+        self.deny("PROTECTED_OR_UNLISTED_PATH")
+
+    def test_wrong_event_number_denied(self):
+        self.event["number"] = 12
+        self.deny("EXACT_HEAD_BASE_IDENTITY")
+
+    def test_truncated_pagination_denied(self):
+        self.truncated_pages = True
+        self.deny("TOO_MANY_FILES")
+
+    def test_head_drift_after_file_listing_denied(self):
+        self.after_pr = copy.deepcopy(self.pr)
+        self.after_pr["head"]["sha"] = "3" * 40
+        self.deny("POST_PAGINATION_HEAD_BASE_DRIFT")
+
+    def test_base_drift_after_file_listing_denied(self):
+        self.after_branch = copy.deepcopy(self.branch)
+        self.after_branch["commit"]["sha"] = "4" * 40
+        self.deny("POST_PAGINATION_HEAD_BASE_DRIFT")
 
     def test_missing_api_token_is_denied(self):
         self.deny("NO_READ_TOKEN", {"GH_TOKEN": ""})
