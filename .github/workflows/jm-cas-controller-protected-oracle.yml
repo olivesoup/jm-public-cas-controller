@@ -80,6 +80,22 @@ jobs:
                   break
           else:
               raise SystemExit('JM_CAS_ORACLE_DENIED_TOO_MANY_FILES')
+          # Re-read live PR and protected master AFTER complete pagination. The
+          # PR may synchronize while the file pages are being enumerated.
+          after = get('/pulls/' + str(number))
+          branch_after = get('/branches/master')
+          if (after.get('number') != number or
+              after.get('state') != 'open' or
+              after.get('draft') is not False or
+              after.get('head', {}).get('sha') != pr.get('head', {}).get('sha') or
+              after.get('base', {}).get('sha') != pr.get('base', {}).get('sha') or
+              after.get('head', {}).get('repo', {}).get('full_name') != REPO or
+              after.get('base', {}).get('repo', {}).get('full_name') != REPO or
+              after.get('base', {}).get('ref') != 'master' or
+              branch_after.get('protected') is not True or
+              branch_after.get('commit', {}).get('sha') != branch.get('commit', {}).get('sha') or
+              branch_after.get('commit', {}).get('sha') != os.environ.get('GITHUB_SHA')):
+              raise SystemExit('JM_CAS_ORACLE_DENIED_POST_PAGINATION_HEAD_BASE_DRIFT')
           if not paths:
               raise SystemExit('JM_CAS_ORACLE_DENIED_EMPTY_CHANGE')
           allowed = ('scripts/', 'ledger/', 'tests/', 'standards/', 'public-notes/')
